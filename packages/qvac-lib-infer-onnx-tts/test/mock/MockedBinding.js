@@ -53,7 +53,7 @@ class MockedBinding {
     if (handle !== this._handle) throw new Error('Invalid handle')
 
     if (this._state !== state.LISTENING) {
-      return false
+      throw new Error('TTS addon is not accepting jobs (not in listening state)')
     }
 
     if (!data || data.type !== 'text' || typeof data.input !== 'string') {
