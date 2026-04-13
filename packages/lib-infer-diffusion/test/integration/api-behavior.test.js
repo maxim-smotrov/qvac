@@ -7,7 +7,7 @@ const binding = require('../../binding')
 const ImgStableDiffusion = require('../../index')
 const {
   ensureModel,
-  saveGeneratedImageArtifact,
+  GeneratedImageSaver,
   setupJsLogger
 } = require('./utils')
 
@@ -76,8 +76,9 @@ async function setupModel (t) {
 }
 
 function saveGeneratedImages (modelDir, filenameSuffix, images) {
+  const imageSaver = new GeneratedImageSaver(modelDir)
   for (let i = 0; i < images.length; i++) {
-    saveGeneratedImageArtifact(modelDir, `api-behavior-${filenameSuffix}-${i}.png`, images[i])
+    imageSaver.save(`api-behavior-${filenameSuffix}-${i}.png`, images[i])
   }
 }
 

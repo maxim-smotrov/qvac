@@ -4,7 +4,50 @@ const path = require('bare-path')
 const https = require('bare-https')
 const os = require('bare-os')
 
-async function downloadFile (url, dest) {
+const ANDROID_GENERATED_IMAGE_ARTIFACT_DIRS = [
+  '/sdcard/Download/qvac-generated-images',
+  '/storage/emulated/0/Download/qvac-generated-images'
+]
+
+class GeneratedImageSaver {
+  constructor(modelDir) {
+    const platform = os.platform()
+
+    if (platform !== 'android') {
+      // Use a separate directory on iOS to avoid pulling the model file on device farm runs.
+      this.artifactDir = platform === 'ios'
+        ? path.resolve(modelDir, '../generated-images')
+        : modelDir
+      fs.mkdirSync(this.artifactDir, { recursive: true })
+      return
+    }
+
+    for (const artifactDir of ANDROID_GENERATED_IMAGE_ARTIFACT_DIRS) {
+      try {
+        fs.mkdirSync(artifactDir, { recursive: true })
+        this.artifactDir = artifactDir
+        return
+      } catch (err) {
+        console.log(`Could not prepare artifact directory ${artifactDir}: ${err.message}`)
+      }
+    }
+  }
+
+  save(filename, imageData) {
+    if (!this.artifactDir) return
+
+    const outputPath = path.join(this.artifactDir, filename)
+
+    try {
+      fs.writeFileSync(outputPath, imageData)
+      console.log(`Image saved to ${outputPath}`)
+    } catch (err) {
+      console.log(`Could not save image to ${this.artifactDir}: ${err.message}`)
+    }
+  }
+}
+
+async function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
     let resolved = false
     const safeResolve = () => {
@@ -75,7 +118,7 @@ async function downloadFile (url, dest) {
   })
 }
 
-async function ensureModel ({ modelName, downloadUrl }) {
+async function ensureModel({ modelName, downloadUrl }) {
   const modelDir = path.resolve(__dirname, '../model')
 
   const modelPath = path.join(modelDir, modelName)
@@ -94,7 +137,7 @@ async function ensureModel ({ modelName, downloadUrl }) {
   return [modelName, modelDir]
 }
 
-async function ensureModelPath ({ modelName, downloadUrl }) {
+async function ensureModelPath({ modelName, downloadUrl }) {
   const [downloadedModelName, modelDir] = await ensureModel({ modelName, downloadUrl })
   return path.join(modelDir, downloadedModelName)
 }
@@ -104,7 +147,7 @@ async function ensureModelPath ({ modelName, downloadUrl }) {
  * On mobile, media files must be in testAssets/
  * On desktop, media files are in addon root /media/
  */
-function getMediaPath (filename) {
+function getMediaPath(filename) {
   const isMobile = os.platform() === 'ios' || os.platform() === 'android'
   if (isMobile && global.assetPaths) {
     const projectPath = `../../testAssets/${filename}`
@@ -122,13 +165,13 @@ function getMediaPath (filename) {
 /**
  * Factory to create a shared onOutput handler for image generation.
  */
-function makeOutputCollector (t, logger = console) {
+function makeOutputCollector(t, logger = console) {
   const outputData = {}
   let jobCompleted = false
   let generatedData = null
   let stats = null
 
-  function onOutput (addon, event, jobId, output, error) {
+  function onOutput(addon, event, jobId, output, error) {
     if (event === 'Output') {
       if (!outputData[jobId]) {
         outputData[jobId] = []
@@ -150,17 +193,17 @@ function makeOutputCollector (t, logger = console) {
   return {
     onOutput,
     outputData,
-    get generatedData () { return generatedData },
-    get jobCompleted () { return jobCompleted },
-    get stats () { return stats }
+    get generatedData() { return generatedData },
+    get jobCompleted() { return jobCompleted },
+    get stats() { return stats }
   }
 }
 
-function detectPlatform () {
+function detectPlatform() {
   return `${os.platform()}-${os.arch()}`
 }
 
-function setupJsLogger (binding) {
+function setupJsLogger(binding) {
   const LOG_PRIORITIES = ['ERROR', 'WARNING', 'INFO', 'DEBUG']
   binding.setLogger((priority, message) => {
     const label = LOG_PRIORITIES[priority] || `UNKNOWN(${priority})`
@@ -169,37 +212,7 @@ function setupJsLogger (binding) {
   return binding
 }
 
-function saveGeneratedImageArtifact (modelDir, filename, imageData) {
-  if (os.platform() !== 'android') {
-    // using a separate directory for iOS to avoid pulling the model file on device farm runs
-    const artifactDir = os.platform() === 'ios'
-      ? path.resolve(modelDir, '../generated-images')
-      : modelDir
-    fs.mkdirSync(artifactDir, { recursive: true })
-    const primaryOutPath = path.join(artifactDir, filename)
-    fs.writeFileSync(primaryOutPath, imageData)
-    console.log(`\nImage saved to ${primaryOutPath}`)
-    return
-  }
-
-  const androidArtifactDirs = [
-    '/sdcard/Download/qvac-generated-images',
-    '/storage/emulated/0/Download/qvac-generated-images'
-  ]
-  for (const artifactDir of androidArtifactDirs) {
-    try {
-      fs.mkdirSync(artifactDir, { recursive: true })
-      const exportPath = path.join(artifactDir, filename)
-      fs.writeFileSync(exportPath, imageData)
-      console.log(`Exported Android artifact to ${exportPath}`)
-      return
-    } catch (err) {
-      console.log(`Could not export Android artifact to ${artifactDir}: ${err.message}`)
-    }
-  }
-}
-
-function isPng (buf) {
+function isPng(buf) {
   if (!buf || buf.length < 8) return false
   return (
     buf[0] === 0x89 &&
@@ -214,12 +227,12 @@ function isPng (buf) {
 }
 
 module.exports = {
+  GeneratedImageSaver,
   ensureModel,
   ensureModelPath,
   getMediaPath,
   makeOutputCollector,
   detectPlatform,
   setupJsLogger,
-  saveGeneratedImageArtifact,
   isPng
 }
