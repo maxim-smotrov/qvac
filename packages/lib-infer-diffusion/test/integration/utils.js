@@ -13,23 +13,22 @@ class GeneratedImageSaver {
   constructor(modelDir) {
     const platform = os.platform()
 
-    if (platform !== 'android') {
+    try {
+      if (platform === 'android') {
+        for (const artifactDir of ANDROID_GENERATED_IMAGE_ARTIFACT_DIRS) {
+          fs.mkdirSync(artifactDir, { recursive: true })
+          this.artifactDir = artifactDir
+          return
+        }
+      }
+
       // Use a separate directory on iOS to avoid pulling the model file on device farm runs.
       this.artifactDir = platform === 'ios'
         ? path.resolve(modelDir, '../generated-images')
         : modelDir
       fs.mkdirSync(this.artifactDir, { recursive: true })
-      return
-    }
-
-    for (const artifactDir of ANDROID_GENERATED_IMAGE_ARTIFACT_DIRS) {
-      try {
-        fs.mkdirSync(artifactDir, { recursive: true })
-        this.artifactDir = artifactDir
-        return
-      } catch (err) {
-        console.log(`Could not prepare artifact directory ${artifactDir}: ${err.message}`)
-      }
+    } catch (err) {
+      console.log(`Could not prepare artifact directory: ${err.message}`)
     }
   }
 
