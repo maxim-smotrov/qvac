@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 const lrSchedulerValues = ["constant", "cosine", "linear"] as const;
-const finetuneStatusValues = ["IDLE", "PAUSED", "COMPLETED"] as const;
+const finetuneStatusValues = [
+  "IDLE",
+  "PAUSED",
+  "CANCELLED",
+  "COMPLETED",
+] as const;
 
 export const finetuneValidationSchema = z
   .discriminatedUnion("type", [

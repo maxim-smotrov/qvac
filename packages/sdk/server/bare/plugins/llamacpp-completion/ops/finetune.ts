@@ -135,7 +135,7 @@ export async function cancelFinetune(modelId: string): Promise<FinetuneResult> {
 
   return {
     type: "finetune",
-    status: "COMPLETED",
+    status: "CANCELLED",
   };
 }
 
