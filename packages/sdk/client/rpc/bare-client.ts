@@ -116,6 +116,7 @@ async function* streamWithProgress(
   ) => Promise<Response>,
 ) {
   const queue: Response[] = [];
+  const errors: Error[] = [];
   let done = false;
 
   handler(request, (update) => queue.push(update))
@@ -123,9 +124,9 @@ async function* streamWithProgress(
       queue.push(final);
       done = true;
     })
-    .catch((error) => {
+    .catch((error: Error) => {
+      errors.push(error);
       done = true;
-      throw error;
     });
 
   while (!done || queue.length > 0) {
@@ -134,6 +135,11 @@ async function* streamWithProgress(
     } else {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
+  }
+
+  const handlerError = errors[0];
+  if (handlerError) {
+    throw handlerError;
   }
 }
 
