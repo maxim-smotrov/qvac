@@ -91,7 +91,7 @@ function createFinetuneReplyRequest(params: FinetuneReplyParams) {
  * @returns For omitted-operation runs, `start`, and `resume`, returns a handle
  *   with a `progressStream` generator and a terminal `result` promise. For
  *   `getState`, `pause`, and `cancel`, returns a promise that resolves to the
- *   terminal finetune result.
+ *   current finetune state/result.
  * @example
  * ```typescript
  * const handle = finetune({

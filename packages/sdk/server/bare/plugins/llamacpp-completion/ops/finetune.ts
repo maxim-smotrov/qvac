@@ -39,6 +39,20 @@ interface FinetuneCapableModel extends AnyModel {
   cancel(): Promise<void>;
 }
 
+const finetuneRuntimeState = new Set<string>();
+
+function getRunningFinetuneState(modelId: string) {
+  return finetuneRuntimeState.has(modelId);
+}
+
+function registerRunningFinetune(modelId: string) {
+  finetuneRuntimeState.add(modelId);
+}
+
+export function clearFinetuneRuntimeState(modelId: string) {
+  finetuneRuntimeState.delete(modelId);
+}
+
 export function getFinetuneStateFromCheckpoints(
   options: FinetuneOptions,
 ): FinetuneStatus {
@@ -98,24 +112,30 @@ export async function startFinetune(
 ): Promise<FinetuneResult> {
   const model = getModel(request.modelId) as FinetuneCapableModel;
   validateExplicitFinetuneOperation(request);
-  const handle = await model.finetune(request.options);
-
-  if (onProgress) {
-    handle.on("stats", onProgress);
-  }
+  registerRunningFinetune(request.modelId);
 
   try {
-    const result = await handle.await();
+    const handle = await model.finetune(request.options);
 
-    return {
-      type: "finetune",
-      status: result.status,
-      stats: result.stats,
-    };
-  } finally {
     if (onProgress) {
-      handle.removeListener("stats", onProgress);
+      handle.on("stats", onProgress);
     }
+
+    try {
+      const result = await handle.await();
+
+      return {
+        type: "finetune",
+        status: result.status,
+        stats: result.stats,
+      };
+    } finally {
+      if (onProgress) {
+        handle.removeListener("stats", onProgress);
+      }
+    }
+  } finally {
+    clearFinetuneRuntimeState(request.modelId);
   }
 }
 
@@ -140,9 +160,11 @@ export async function cancelFinetune(modelId: string): Promise<FinetuneResult> {
 }
 
 export function getFinetuneState(params: FinetuneGetStateRequest): FinetuneResult {
+  const runtimeState = getRunningFinetuneState(params.modelId);
+
   return {
     type: "finetune",
-    status: getFinetuneStateFromCheckpoints(params.options),
+    status: runtimeState ? "RUNNING" : getFinetuneStateFromCheckpoints(params.options),
   };
 }
 

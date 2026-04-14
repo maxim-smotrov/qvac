@@ -240,6 +240,88 @@ test.skip("getFinetuneState: returns idle when no pause checkpoint exists", asyn
   }
 });
 
+test.skip("getFinetuneState: returns running while finetune is active", async (t) => {
+  clearRegistry();
+  const modelId = "finetune-state-running-model";
+  const checkpointDir = createTempCheckpointDir();
+  let resolveAwait: ((value: {
+    op: "finetune";
+    status: "COMPLETED";
+    stats: {
+      global_steps: number;
+      epochs_completed: number;
+    };
+  }) => void) | null = null;
+
+  registerModel(modelId, {
+    model: {
+      finetune: async function () {
+        return {
+          on() {
+            return this;
+          },
+          removeListener() {
+            return this;
+          },
+          await() {
+            return new Promise((resolve) => {
+              resolveAwait = resolve;
+            });
+          },
+        };
+      },
+      pause: async function () { },
+      cancel: async function () { },
+    } as unknown as AnyModel,
+    path: "/tmp/state-running-model.gguf",
+    config: {},
+    modelType: ModelType.llamacppCompletion,
+    loader: {} as never,
+  });
+
+  try {
+    const startPromise = startFinetune({
+      type: "finetune",
+      modelId,
+      options: {
+        trainDatasetDir: "/tmp/train.jsonl",
+        validation: { type: "none" },
+        outputParametersDir: "/tmp/out",
+        checkpointSaveDir: checkpointDir,
+      },
+    });
+
+    const result = getFinetuneState({
+      type: "finetune",
+      modelId,
+      operation: "getState",
+      options: {
+        trainDatasetDir: "/tmp/train.jsonl",
+        validation: { type: "none" },
+        outputParametersDir: "/tmp/out",
+        checkpointSaveDir: checkpointDir,
+      },
+    });
+
+    t.is(result.status, "RUNNING");
+
+    resolveAwait?.({
+      op: "finetune",
+      status: "COMPLETED",
+      stats: {
+        global_steps: 1,
+        epochs_completed: 1,
+      },
+    });
+
+    await startPromise;
+  } finally {
+    unregisterModel(modelId);
+    clearRegistry();
+    cleanupCheckpointDir(checkpointDir);
+  }
+});
+
 test.skip("finetune: omitted operation preserves automatic addon behavior", async (t) => {
   clearRegistry();
   const modelId = "finetune-auto-model";

@@ -3,6 +3,7 @@ import { z } from "zod";
 const lrSchedulerValues = ["constant", "cosine", "linear"] as const;
 const finetuneStatusValues = [
   "IDLE",
+  "RUNNING",
   "PAUSED",
   "CANCELLED",
   "COMPLETED",

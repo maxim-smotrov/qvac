@@ -135,6 +135,16 @@ test("finetuneResponseSchema: parses idle terminal status", (t) => {
   t.is(response.status, "IDLE");
 });
 
+test("finetuneResponseSchema: parses running status", (t) => {
+  const response = finetuneResponseSchema.parse({
+    type: "finetune",
+    status: "RUNNING",
+  });
+
+  t.is(response.type, "finetune");
+  t.is(response.status, "RUNNING");
+});
+
 test("finetuneResponseSchema: parses cancelled terminal status", (t) => {
   const response = finetuneResponseSchema.parse({
     type: "finetune",
