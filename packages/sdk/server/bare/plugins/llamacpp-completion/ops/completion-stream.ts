@@ -9,8 +9,6 @@ import type {
 import {
   logCacheDisabled,
   logCacheInit,
-  logCacheSave,
-  logCacheSaveError,
   logCacheStatus,
   logMessagesToAddon,
 } from "@/server/bare/plugins/llamacpp-completion/ops/cache-logger";
@@ -143,7 +141,6 @@ async function initSystemPromptCache(
   tools?: Tool[],
 ) {
   const primeMessages: ChatHistory[] = [
-    { role: "session", content: cachePathToUse },
     { role: "system", content: systemPromptToUse },
   ];
 
@@ -157,7 +154,13 @@ async function initSystemPromptCache(
   logCacheInit(cacheKey, systemPromptToUse, toolCount);
   logMessagesToAddon(primeMessages, "CACHE_INIT");
 
-  const primeResponse = await model.run(primeMessages);
+  const runFn = model.run.bind(model) as (
+    msgs: ChatHistory[],
+    opts?: unknown,
+  ) => ReturnType<typeof model.run>;
+  const primeResponse = await runFn(primeMessages, {
+    cacheKey: cachePathToUse,
+  });
 
   primeResponse.once("output", () => {
     void primeResponse.cancel();
@@ -186,29 +189,24 @@ function prepareMessagesForCache(
       cachedMessageCounts.delete(cachePathToUse);
     }
 
-    const transformedNewMessages = transformMessages(newMessages);
-    return [
-      { role: "session", content: cachePathToUse },
-      ...transformedNewMessages,
-    ];
+    return transformMessages(newMessages);
   }
 
   const historyWithoutSystem = history.filter((msg) => msg.role !== "system");
-  const transformedHistoryWithoutSystem =
-    transformMessages(historyWithoutSystem);
+  return transformMessages(historyWithoutSystem);
+}
 
-  return [
-    { role: "session", content: cachePathToUse },
-    ...transformedHistoryWithoutSystem,
-  ];
+interface CacheRunOptions {
+  cacheKey?: string;
+  saveCacheToDisk?: boolean;
 }
 
 async function* processModelResponse(
   model: AnyModel,
   messagesToSend: ChatHistory[],
-  shouldSaveCache: boolean,
   tools?: Tool[],
   generationParams?: GenerationParams,
+  cacheOptions?: CacheRunOptions,
 ): AsyncGenerator<
   { token: string; toolCallEvent?: ToolCallEvent },
   { modelExecutionMs: number; stats?: CompletionStats; toolCalls: ToolCall[] },
@@ -218,10 +216,19 @@ async function* processModelResponse(
     msgs: ChatHistory[],
     opts?: unknown,
   ) => ReturnType<typeof model.run>;
-  const runOptions = generationParams ? { generationParams } : undefined;
+  const runOptions: CacheRunOptions & { generationParams?: GenerationParams } =
+    {
+      ...(generationParams && { generationParams }),
+      ...(cacheOptions?.cacheKey && { cacheKey: cacheOptions.cacheKey }),
+      ...(cacheOptions?.saveCacheToDisk && { saveCacheToDisk: true }),
+    };
+  const hasRunOptions = Object.keys(runOptions).length > 0;
 
   const modelStart = nowMs();
-  const response = await runFn(messagesToSend, runOptions);
+  const response = await runFn(
+    messagesToSend,
+    hasRunOptions ? runOptions : undefined,
+  );
 
   let accumulatedText = "";
   const emittedToolCallPositions = new Set<number>();
@@ -251,23 +258,6 @@ async function* processModelResponse(
   if (tools && tools.length > 0) {
     const { toolCalls } = parseToolCalls(accumulatedText, tools);
     toolCallsResult = toolCalls;
-  }
-
-  if (shouldSaveCache) {
-    const sessionMsg = messagesToSend.find((m) => m.role === "session");
-    if (sessionMsg?.content) {
-      logCacheSave(sessionMsg.content);
-      const cachePath = sessionMsg.content;
-      const saveResp = await model.run([
-        { role: "session", content: cachePath },
-        { role: "session", content: "save" },
-      ]);
-      try {
-        await saveResp.await();
-      } catch (err: unknown) {
-        logCacheSaveError(cachePath, err);
-      }
-    }
   }
 
   const responseWithStats = response as unknown as ResponseWithStats;
@@ -366,9 +356,9 @@ export async function* completion(
       const result = yield* processModelResponse(
         model,
         messagesToSend,
-        true,
         tools,
         generationParams,
+        { cacheKey: cachePathToUse, saveCacheToDisk: true },
       );
       cachedMessageCounts.set(cachePathToUse, history.length + 1);
       return result;
@@ -421,9 +411,9 @@ export async function* completion(
       const result = yield* processModelResponse(
         model,
         messagesToSend,
-        true,
         tools,
         generationParams,
+        { cacheKey: cachePathToUse, saveCacheToDisk: true },
       );
       cachedMessageCounts.set(cachePathToUse, history.length + 1);
 
@@ -447,7 +437,6 @@ export async function* completion(
     return yield* processModelResponse(
       model,
       transformedHistory,
-      false,
       tools,
       generationParams,
     );
