@@ -58,6 +58,8 @@ export class DiffusionExecutor extends AbstractModelExecutor<typeof diffusionTes
     if (p.seed != null) params.seed = p.seed as number;
     if (p.batch_count != null) params.batch_count = p.batch_count as number;
     if (p.vae_tiling != null) params.vae_tiling = p.vae_tiling as boolean;
+    if (p.init_image != null) params.init_image = p.init_image as Uint8Array;
+    if (p.strength != null) params.strength = p.strength as number;
 
     return params;
   }

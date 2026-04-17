@@ -197,6 +197,104 @@ test("diffusionRequestSchema: rejects invalid scheduler", (t) => {
   t.is(result.success, false);
 });
 
+test("diffusionRequestSchema: accepts img2img request with init_image and strength", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "oil painting style",
+    init_image: "iVBORw0KGgoAAAANSUhEUg==",
+    strength: 0.7,
+  });
+  t.is(result.success, true);
+});
+
+test("diffusionRequestSchema: accepts img2img request with init_image only (no strength)", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "watercolor",
+    init_image: "iVBORw0KGgoAAAANSUhEUg==",
+  });
+  t.is(result.success, true);
+});
+
+test("diffusionRequestSchema: rejects strength below 0", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    strength: -0.1,
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects strength above 1", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    strength: 1.5,
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects empty init_image", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    init_image: "",
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects init_image with invalid base64 characters", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    init_image: "not valid base64!!!",
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects init_image with base64url characters (-, _)", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    init_image: "iVBORw0KGgoAAAANSUhE-_==",
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects init_image with embedded whitespace", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    init_image: "iVBORw0KGgo\nAAAANSUhEUg==",
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: rejects init_image with length not a multiple of 4", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    init_image: "iVBORw0KGgoAAAANSUhEUg",
+  });
+  t.is(result.success, false);
+});
+
+test("diffusionRequestSchema: accepts strength at boundaries (0 and 1)", (t) => {
+  const resultZero = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    strength: 0,
+  });
+  t.is(resultZero.success, true);
+
+  const resultOne = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    strength: 1,
+  });
+  t.is(resultOne.success, true);
+});
+
 // ============================================
 // diffusionStreamResponseSchema
 // ============================================
@@ -411,6 +509,86 @@ test("diffusion plugin: registers and dispatches diffusionStream", async functio
     // Last chunk: sentinel
     t.is(chunks[3]!.done, true);
     t.is(chunks[3]!.result, null);
+  } finally {
+    unregisterModel(modelId);
+    clearPlugins();
+  }
+});
+
+test("diffusion plugin: dispatches img2img request with init_image", async function (t) {
+  clearPlugins();
+  const modelId = "test-diffusion-model-img2img";
+
+  const mockPlugin = {
+    modelType: ModelType.sdcppGeneration,
+    displayName: "Image Generation (stable-diffusion.cpp)",
+    addonPackage: "@qvac/diffusion-cpp",
+    loadConfigSchema: sdcppConfigSchema,
+    createModel: function () {
+      return {
+        model: { load: async function () {} },
+        loader: undefined,
+      };
+    },
+    handlers: {
+      diffusionStream: {
+        requestSchema: diffusionRequestSchema as z.ZodType,
+        responseSchema: diffusionStreamResponseSchema as z.ZodType,
+        streaming: true,
+        handler: async function* (request: Record<string, unknown>) {
+          t.ok(typeof request.init_image === "string", "init_image is base64 string on wire");
+          t.is(request.strength, 0.65);
+          yield {
+            type: "diffusionStream" as const,
+            data: "iVBORw0KGgoAAAANSUhEUg==",
+            outputIndex: 0,
+          };
+          yield {
+            type: "diffusionStream" as const,
+            done: true,
+            stats: { generationMs: 300, totalSteps: 20, width: 512, height: 512 },
+          };
+        },
+      },
+    },
+  };
+
+  try {
+    registerPlugin(mockPlugin);
+    registerModel(modelId, {
+      model: {} as unknown as AnyModel,
+      path: "/tmp/model.safetensors",
+      config: {},
+      modelType: ModelType.sdcppGeneration,
+      loader: undefined,
+    });
+
+    const stream = handlePluginInvokeStream({
+      type: "pluginInvokeStream",
+      modelId,
+      handler: "diffusionStream",
+      params: {
+        modelId,
+        prompt: "oil painting",
+        init_image: "iVBORw0KGgoAAAANSUhEUg==",
+        strength: 0.65,
+      },
+    });
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+
+    // 2 data chunks + 1 sentinel
+    t.is(chunks.length, 3);
+
+    const outputData = chunks[0]!.result as Record<string, unknown>;
+    t.ok(typeof outputData.data === "string");
+    t.is(outputData.outputIndex, 0);
+
+    const finalData = chunks[1]!.result as Record<string, unknown>;
+    t.is(finalData.done, true);
   } finally {
     unregisterModel(modelId);
     clearPlugins();
