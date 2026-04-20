@@ -243,8 +243,12 @@ async function* processModelResponse(
   const runOptions: CacheRunOptions & { generationParams?: GenerationParams } =
     {
       ...(generationParams && { generationParams }),
-      ...(cacheOptions?.cacheKey && { cacheKey: cacheOptions.cacheKey }),
-      ...(cacheOptions?.saveCacheToDisk && { saveCacheToDisk: true }),
+      ...(cacheOptions?.cacheKey !== undefined && {
+        cacheKey: cacheOptions.cacheKey,
+      }),
+      ...(cacheOptions?.saveCacheToDisk !== undefined && {
+        saveCacheToDisk: cacheOptions.saveCacheToDisk,
+      }),
     };
   const hasRunOptions = Object.keys(runOptions).length > 0;
 
