@@ -187,6 +187,7 @@ async function initSystemPromptCache(
   ) => ReturnType<typeof model.run>;
   const primeResponse = await runFn(primeMessages, {
     cacheKey: cachePathToUse,
+    saveCacheToDisk: true,
   });
 
   primeResponse.once("output", () => {
