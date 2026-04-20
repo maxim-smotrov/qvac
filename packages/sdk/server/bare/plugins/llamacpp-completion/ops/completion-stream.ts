@@ -9,6 +9,8 @@ import type {
 import {
   logCacheDisabled,
   logCacheInit,
+  logCacheSave,
+  logCacheSaveError,
   logCacheStatus,
   logMessagesToAddon,
 } from "@/server/bare/plugins/llamacpp-completion/ops/cache-logger";
@@ -41,7 +43,7 @@ import {
   hasDefinedValues,
 } from "@/profiling/model-execution";
 import type { LlmStats } from "@/server/bare/types/addon-responses";
-import fs from "bare-fs";
+import fs, { promises as fsPromises } from "bare-fs";
 
 interface ResponseWithStats {
   stats?: LlmStats;
@@ -63,6 +65,30 @@ export function clearCachedMessageCounts(cachePath?: string): void {
     cachedMessageCounts.delete(cachePath);
   } else {
     cachedMessageCounts.clear();
+  }
+}
+
+// Verify the addon actually persisted the cache file before recording its
+// message count. The addon currently swallows write errors silently, so a
+// missing file means the next turn must resend the full history rather than
+// slicing against a stale `savedCount`.
+//
+// TODO: once the addon surfaces save failures (e.g. throws
+// `UnableToSaveSessionFile` when `llama_state_save_file` returns false),
+// drop the `access()` probe and wrap the `model.run()` call in a real
+// try/catch that forwards the error to `logCacheSaveError`.
+async function recordCacheSaveCount(
+  cachePath: string,
+  messageCount: number,
+): Promise<boolean> {
+  try {
+    await fsPromises.access(cachePath);
+    cachedMessageCounts.set(cachePath, messageCount);
+    return true;
+  } catch (err) {
+    cachedMessageCounts.delete(cachePath);
+    logCacheSaveError(cachePath, err);
+    return false;
   }
 }
 
@@ -255,6 +281,10 @@ async function* processModelResponse(
   }
   const modelExecutionMs = nowMs() - modelStart;
 
+  if (cacheOptions?.saveCacheToDisk && cacheOptions.cacheKey) {
+    logCacheSave(cacheOptions.cacheKey);
+  }
+
   if (tools && tools.length > 0) {
     const { toolCalls } = parseToolCalls(accumulatedText, tools);
     toolCallsResult = toolCalls;
@@ -360,7 +390,7 @@ export async function* completion(
         generationParams,
         { cacheKey: cachePathToUse, saveCacheToDisk: true },
       );
-      cachedMessageCounts.set(cachePathToUse, history.length + 1);
+      await recordCacheSaveCount(cachePathToUse, history.length + 1);
       return result;
     } else {
       // Auto-generate cache key based on conversation history
@@ -415,9 +445,13 @@ export async function* completion(
         generationParams,
         { cacheKey: cachePathToUse, saveCacheToDisk: true },
       );
-      cachedMessageCounts.set(cachePathToUse, history.length + 1);
+      const saveVerified = await recordCacheSaveCount(
+        cachePathToUse,
+        history.length + 1,
+      );
 
       if (
+        saveVerified &&
         existingCache !== null &&
         existingCache.cachePath !== currentCacheInfo.cachePath
       ) {
