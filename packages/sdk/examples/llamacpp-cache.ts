@@ -140,7 +140,9 @@ try {
   if (modelId) {
     try {
       await unloadModel({ modelId, clearStorage: false });
-    } catch {}
+    } catch (cleanupError) {
+      console.warn("⚠️ cleanup failed:", cleanupError);
+    }
   }
 
   console.error("❌ Error:", error);
