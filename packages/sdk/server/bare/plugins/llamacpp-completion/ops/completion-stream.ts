@@ -1,3 +1,4 @@
+import type { RunOptions } from "@qvac/llm-llamacpp";
 import type {
   CompletionParams,
   CompletionStats,
@@ -222,10 +223,7 @@ function prepareMessagesForCache(
   return transformMessages(historyWithoutSystem);
 }
 
-interface CacheRunOptions {
-  cacheKey?: string;
-  saveCacheToDisk?: boolean;
-}
+type CacheRunOptions = Pick<RunOptions, "cacheKey" | "saveCacheToDisk">;
 
 async function* processModelResponse(
   model: AnyModel,
