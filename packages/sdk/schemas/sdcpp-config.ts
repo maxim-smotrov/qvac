@@ -81,7 +81,7 @@ export const diffusionRequestSchema = z.object({
   steps: z.number().int().positive().optional(),
   cfg_scale: z.number().optional()
     .describe("Classifier-free guidance scale for SD 1.x / 2.x / XL / SD3 models; typical range 1–20, default 7"),
-  img_cfg_scale: z.number().optional()
+  img_cfg_scale: z.number().default(-1)
     .describe("Image CFG scale for img2img/inpaint workflows where the image and prompt should have different guidance weights; defaults to -1 which reuses cfg_scale"),
   guidance: z.number().optional()
     .describe("Distilled guidance for FLUX models; typical range 1–10, default 3.5"),
@@ -122,13 +122,13 @@ export const diffusionRequestSchema = z.object({
     .describe("img2img denoising strength (0.0 = keep source, 1.0 = ignore source); used by the SD/SDXL SDEdit path. No-op for FLUX.2, which uses in-context conditioning and ignores this field."),
 });
 
-export type DiffusionRequest = z.infer<typeof diffusionRequestSchema>;
+export type DiffusionRequest = z.input<typeof diffusionRequestSchema>;
 
 export const diffusionStreamRequestSchema = diffusionRequestSchema.extend({
   type: z.literal("diffusionStream"),
 });
 
-export type DiffusionStreamRequest = z.infer<
+export type DiffusionStreamRequest = z.input<
   typeof diffusionStreamRequestSchema
 >;
 

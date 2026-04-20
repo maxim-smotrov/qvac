@@ -25,7 +25,7 @@ export async function* diffusion(
     height: request.height,
     steps: request.steps,
     cfg_scale: request.cfg_scale,
-    img_cfg_scale: request.img_cfg_scale,
+    img_cfg_scale: request.img_cfg_scale ?? -1,
     guidance: request.guidance,
     sampling_method: request.sampling_method,
     scheduler: request.scheduler,

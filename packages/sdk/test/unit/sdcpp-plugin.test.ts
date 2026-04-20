@@ -147,6 +147,29 @@ test("diffusionRequestSchema: accepts full txt2img request", (t) => {
   t.is(result.success, true);
 });
 
+test("diffusionRequestSchema: applies img_cfg_scale default of -1 when omitted", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+  });
+  t.is(result.success, true);
+  if (result.success) {
+    t.is(result.data.img_cfg_scale, -1);
+  }
+});
+
+test("diffusionRequestSchema: preserves explicit img_cfg_scale value", (t) => {
+  const result = diffusionRequestSchema.safeParse({
+    modelId: "model-1",
+    prompt: "a cat",
+    img_cfg_scale: 4.5,
+  });
+  t.is(result.success, true);
+  if (result.success) {
+    t.is(result.data.img_cfg_scale, 4.5);
+  }
+});
+
 test("diffusionRequestSchema: rejects missing modelId", (t) => {
   const result = diffusionRequestSchema.safeParse({
     prompt: "a cat",
