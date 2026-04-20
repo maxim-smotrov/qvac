@@ -61,6 +61,10 @@ interface ChatHistory {
 
 const cachedMessageCounts = new Map<string, number>();
 
+type CompletionRunOptions = Pick<RunOptions, "cacheKey" | "saveCacheToDisk"> & {
+  generationParams?: GenerationParams;
+};
+
 export function clearCachedMessageCounts(cachePath?: string): void {
   if (cachePath) {
     cachedMessageCounts.delete(cachePath);
@@ -143,6 +147,19 @@ function transformMessage(
   return transformed;
 }
 
+function runModel(
+  model: AnyModel,
+  prompt: ChatHistory[],
+  opts?: CompletionRunOptions,
+) {
+  const run = model.run.bind(model) as (
+    prompt: ChatHistory[],
+    opts?: CompletionRunOptions,
+  ) => ReturnType<typeof model.run>;
+
+  return run(prompt, opts);
+}
+
 function transformMessages(
   messages: Array<
     | {
@@ -181,11 +198,7 @@ async function initSystemPromptCache(
   logCacheInit(cacheKey, systemPromptToUse, toolCount);
   logMessagesToAddon(primeMessages, "CACHE_INIT");
 
-  const runFn = model.run.bind(model) as (
-    msgs: ChatHistory[],
-    opts?: unknown,
-  ) => ReturnType<typeof model.run>;
-  const primeResponse = await runFn(primeMessages, {
+  const primeResponse = await runModel(model, primeMessages, {
     cacheKey: cachePathToUse,
     saveCacheToDisk: true,
   });
@@ -237,10 +250,6 @@ async function* processModelResponse(
   { modelExecutionMs: number; stats?: CompletionStats; toolCalls: ToolCall[] },
   unknown
 > {
-  const runFn = model.run.bind(model) as (
-    msgs: ChatHistory[],
-    opts?: unknown,
-  ) => ReturnType<typeof model.run>;
   const runOptions: CacheRunOptions & { generationParams?: GenerationParams } =
     {
       ...(generationParams && { generationParams }),
@@ -254,7 +263,8 @@ async function* processModelResponse(
   const hasRunOptions = Object.keys(runOptions).length > 0;
 
   const modelStart = nowMs();
-  const response = await runFn(
+  const response = await runModel(
+    model,
     messagesToSend,
     hasRunOptions ? runOptions : undefined,
   );
