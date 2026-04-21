@@ -318,6 +318,7 @@ resources.define("diffusion", {
   config: {
     device: "gpu",
     threads: 4,
+    prediction: "flux2_flow",
     llmModelSrc: QWEN3_4B_Q4_K_M,
     vaeModelSrc: FLUX_2_KLEIN_4B_VAE,
   },
