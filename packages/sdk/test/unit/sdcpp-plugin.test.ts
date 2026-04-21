@@ -520,21 +520,17 @@ test("diffusion plugin: registers and dispatches diffusionStream", async functio
         chunks.push(chunk);
       }
 
-      // 3 data chunks + 1 final done:true sentinel
       t.is(chunks.length, 4);
 
-      // First chunk: progress tick
       t.is(chunks[0]!.done, false);
       const progressData = chunks[0]!.result as Record<string, unknown>;
       t.is(progressData.step, 1);
       t.is(progressData.totalSteps, 2);
 
-      // Second chunk: output data
       const outputData = chunks[1]!.result as Record<string, unknown>;
       t.ok(typeof outputData.data === "string");
       t.is(outputData.outputIndex, 0);
 
-      // Third chunk: final stats
       const finalData = chunks[2]!.result as Record<string, unknown>;
       t.is(finalData.done, true);
       t.ok(finalData.stats);
@@ -542,7 +538,6 @@ test("diffusion plugin: registers and dispatches diffusionStream", async functio
       t.is(stats.generationMs, 200);
       t.is(stats.totalSteps, 2);
 
-      // Last chunk: sentinel
       t.is(chunks[3]!.done, true);
       t.is(chunks[3]!.result, null);
     },
@@ -578,17 +573,12 @@ test("diffusion plugin: img2img request reaches handler verbatim after safeParse
         // no-op
       }
 
-      // Catches base64 mangling of init_image, dropped strength, or a
-      // regression that bypasses schema-default application of img_cfg_scale.
       t.alike(observedRequest, { ...requestParams, img_cfg_scale: -1 });
     },
   );
 });
 
 test("diffusion plugin: dispatcher forwards interleaved multi-tick + multi-output stream verbatim", async function (t) {
-  // Realistic batch_count: 2 stream — several ticks then multiple outputs.
-  // No two numeric fields share a value, so a step/totalSteps or width/height
-  // swap in the dispatcher would surface here.
   const yieldedChunks: DiffusionStreamResponse[] = [
     { type: "diffusionStream", step: 7, totalSteps: 23, elapsedMs: 110 },
     { type: "diffusionStream", step: 14, totalSteps: 23, elapsedMs: 220 },
@@ -627,10 +617,6 @@ test("diffusion plugin: dispatcher forwards interleaved multi-tick + multi-outpu
         chunks.push(chunk);
       }
 
-      // Each payload chunk round-trips with envelope { type, result, done }
-      // fully intact. Deep-equals catches silent transformations that a
-      // field-by-field check would miss (JSON round-trip, partial drop,
-      // field rename, default injection).
       for (let i = 0; i < yieldedChunks.length; i++) {
         t.alike(chunks[i], {
           type: "pluginInvokeStream",
@@ -766,13 +752,11 @@ test("diffusion plugin: stats with all RuntimeStats fields passes response valid
         chunks.push(chunk);
       }
 
-      // data chunk + sentinel
       t.is(chunks.length, 2);
 
       const statsChunk = chunks[0]!.result as Record<string, unknown>;
       const receivedStats = statsChunk.stats as Record<string, unknown>;
 
-      // Verify all RuntimeStats fields survived safeParse validation
       t.is(receivedStats.modelLoadMs, 500);
       t.is(receivedStats.generationMs, 1234);
       t.is(receivedStats.totalGenerationMs, 1234);
