@@ -5,8 +5,6 @@ import {
   type TestResult,
   type Expectation,
 } from "@tetherto/qvac-test-suite";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { AbstractModelExecutor } from "./abstract-model-executor.js";
 import { diffusionTests } from "../../diffusion-tests.js";
 
@@ -40,17 +38,12 @@ export class DiffusionExecutor extends AbstractModelExecutor<typeof diffusionTes
     return { passed: false, output: `Unknown test: ${testId}` };
   }
 
-  private resolveInitImage(value: unknown): Uint8Array {
-    if (value instanceof Uint8Array) return value;
-    if (typeof value === "string") {
-      const fileName = value.split("/").pop()!;
-      const filePath = path.resolve(process.cwd(), "assets/images", fileName);
-      return new Uint8Array(fs.readFileSync(filePath));
-    }
-    throw new Error(`Unsupported init_image type: ${typeof value}`);
+  // mobile and desktop subclasses override this to handle filesystem differences
+  protected async resolveParams(p: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return p;
   }
 
-  private buildParams(
+  protected buildParams(
     modelId: string,
     p: Record<string, unknown>,
   ): DiffusionClientParams {
@@ -70,14 +63,14 @@ export class DiffusionExecutor extends AbstractModelExecutor<typeof diffusionTes
     if (p.seed != null) params.seed = p.seed as number;
     if (p.batch_count != null) params.batch_count = p.batch_count as number;
     if (p.vae_tiling != null) params.vae_tiling = p.vae_tiling as boolean;
-    if (p.init_image != null) params.init_image = this.resolveInitImage(p.init_image);
+    if (p.init_image != null) params.init_image = p.init_image as Uint8Array;
     if (p.strength != null) params.strength = p.strength as number;
 
     return params;
   }
 
   async generic(params: unknown, expectation: unknown): Promise<TestResult> {
-    const p = params as Record<string, unknown>;
+    const p = await this.resolveParams(params as Record<string, unknown>);
     const modelId = await this.resources.ensureLoaded("diffusion");
 
     try {
