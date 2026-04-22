@@ -37,6 +37,7 @@ import {
   setupToolGrammar,
 } from "@/server/utils/tool-integration";
 import { parseToolCalls } from "@/server/utils/tool-parser";
+import { buildAutoCacheSaveHistory } from "@/server/utils/auto-kv-cache-history";
 import { AttachmentNotFoundError } from "@/utils/errors-server";
 import { nowMs } from "@/profiling";
 import {
@@ -48,6 +49,16 @@ import fs, { promises as fsPromises } from "bare-fs";
 
 interface ResponseWithStats {
   stats?: LlmStats;
+}
+
+interface CompletionResult {
+  modelExecutionMs: number;
+  stats?: CompletionStats;
+  toolCalls: ToolCall[];
+}
+
+interface ProcessModelResponseResult extends CompletionResult {
+  responseText: string;
 }
 
 interface ChatHistory {
@@ -247,7 +258,7 @@ async function* processModelResponse(
   cacheOptions?: CacheRunOptions,
 ): AsyncGenerator<
   { token: string; toolCallEvent?: ToolCallEvent },
-  { modelExecutionMs: number; stats?: CompletionStats; toolCalls: ToolCall[] },
+  ProcessModelResponseResult,
   unknown
 > {
   const runOptions: CacheRunOptions & { generationParams?: GenerationParams } =
@@ -325,6 +336,7 @@ async function* processModelResponse(
       hasDefinedValues(stats) ? stats : undefined,
     ),
     toolCalls: toolCallsResult,
+    responseText: accumulatedText,
   };
 }
 
@@ -335,7 +347,7 @@ export async function* completion(
   },
 ): AsyncGenerator<
   { token: string; toolCallEvent?: ToolCallEvent },
-  { modelExecutionMs: number; stats?: CompletionStats; toolCalls: ToolCall[] },
+  CompletionResult,
   unknown
 > {
   const { history, modelId, kvCache, tools, generationParams } = params;
@@ -418,7 +430,7 @@ export async function* completion(
         configHash,
         cacheMessages,
       );
-      const currentCacheInfo = await getCurrentCacheInfo(
+      const preResponseCacheInfo = await getCurrentCacheInfo(
         modelId,
         configHash,
         cacheMessages,
@@ -427,7 +439,7 @@ export async function* completion(
       cachePathToUse =
         existingCache !== null
           ? existingCache.cachePath
-          : currentCacheInfo.cachePath;
+          : preResponseCacheInfo.cachePath;
 
       let cacheExists = existingCache !== null;
       logCacheStatus("auto", cacheExists);
@@ -440,7 +452,7 @@ export async function* completion(
           "auto",
           tools && toolsEnabled ? tools : undefined,
         );
-        markCacheInitialized(modelId, configHash, currentCacheInfo.cacheKey);
+        markCacheInitialized(modelId, configHash, preResponseCacheInfo.cacheKey);
         cacheExists = true;
       }
 
@@ -463,17 +475,30 @@ export async function* completion(
         history.length + 1,
       );
 
-      if (
-        saveVerified &&
-        existingCache !== null &&
-        existingCache.cachePath !== currentCacheInfo.cachePath
-      ) {
-        cachedMessageCounts.delete(existingCache.cachePath);
-        cachedMessageCounts.set(currentCacheInfo.cachePath, history.length + 1);
-        await renameCacheFile(
-          existingCache.cachePath,
-          currentCacheInfo.cachePath,
+      if (saveVerified) {
+        const savedHistory = buildAutoCacheSaveHistory(
+          cacheMessages,
+          result.responseText,
         );
+        const postResponseCacheInfo = await getCurrentCacheInfo(
+          modelId,
+          configHash,
+          savedHistory,
+        );
+
+        if (cachePathToUse !== postResponseCacheInfo.cachePath) {
+          const renameSucceeded = await renameCacheFile(
+            cachePathToUse,
+            postResponseCacheInfo.cachePath,
+          );
+          cachedMessageCounts.delete(cachePathToUse);
+          cachedMessageCounts.set(
+            renameSucceeded ? postResponseCacheInfo.cachePath : cachePathToUse,
+            savedHistory.length,
+          );
+        } else {
+          cachedMessageCounts.set(cachePathToUse, savedHistory.length);
+        }
       }
 
       return result;
