@@ -1,4 +1,5 @@
 export * from "./archive";
+export * from "./auto-kv-cache-history";
 export * from "./cache";
 export * from "./checksum";
 export * from "./config-transform";

@@ -1,11 +1,12 @@
 import crypto from "bare-crypto";
 import { promises as fsPromises } from "bare-fs";
 import path from "bare-path";
-import { getKVCacheDir, validateAndJoinPath } from "@/server/utils";
 import {
-  getAutoCacheLookupHistory,
   type AutoCacheMessage,
-} from "@/server/utils/auto-kv-cache-history";
+  getAutoCacheLookupHistory,
+  getKVCacheDir,
+  validateAndJoinPath,
+} from "@/server/utils";
 import { getServerLogger } from "@/logging";
 
 const logger = getServerLogger();

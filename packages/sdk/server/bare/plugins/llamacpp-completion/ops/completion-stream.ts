@@ -37,7 +37,7 @@ import {
   setupToolGrammar,
 } from "@/server/utils/tool-integration";
 import { parseToolCalls } from "@/server/utils/tool-parser";
-import { buildAutoCacheSaveHistory } from "@/server/utils/auto-kv-cache-history";
+import { buildAutoCacheSaveHistory } from "@/server/utils";
 import { AttachmentNotFoundError } from "@/utils/errors-server";
 import { nowMs } from "@/profiling";
 import {
