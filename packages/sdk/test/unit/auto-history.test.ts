@@ -3,7 +3,7 @@ import test from "brittle";
 import {
   buildAutoCacheSaveHistory,
   getAutoCacheLookupHistory,
-} from "@/server/utils/auto-kv-cache-history";
+} from "@/server/utils/cache/auto-history";
 
 test("auto kv-cache history: next-turn lookup matches prior saved turn", (t) => {
   const firstTurnHistory = [

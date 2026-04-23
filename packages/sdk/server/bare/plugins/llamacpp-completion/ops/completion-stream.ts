@@ -24,7 +24,6 @@ import {
   getCurrentCacheInfo,
   markCacheInitialized,
   renameCacheFile,
-  type CacheMessage,
 } from "@/server/bare/ops/kv-cache-utils";
 import {
   getModel,
@@ -37,7 +36,7 @@ import {
   setupToolGrammar,
 } from "@/server/utils/tool-integration";
 import { parseToolCalls } from "@/server/utils/tool-parser";
-import { buildAutoCacheSaveHistory } from "@/server/utils";
+import { buildAutoCacheSaveHistory, type CacheMessage } from "@/server/utils";
 import { AttachmentNotFoundError } from "@/utils/errors-server";
 import { nowMs } from "@/profiling";
 import {

@@ -1,11 +1,11 @@
-export interface AutoCacheMessage {
+export interface CacheMessage {
   role: string;
   content: string;
   attachments?: { path: string }[] | undefined;
 }
 
 export function getAutoCacheLookupHistory(
-  currentHistory: AutoCacheMessage[],
+  currentHistory: CacheMessage[],
 ) {
   if (currentHistory.length <= 1) {
     return [];
@@ -15,7 +15,7 @@ export function getAutoCacheLookupHistory(
 }
 
 export function buildAutoCacheSaveHistory(
-  currentHistory: AutoCacheMessage[],
+  currentHistory: CacheMessage[],
   assistantResponse: string,
 ) {
   return [

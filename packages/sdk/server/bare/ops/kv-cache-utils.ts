@@ -2,7 +2,7 @@ import crypto from "bare-crypto";
 import { promises as fsPromises } from "bare-fs";
 import path from "bare-path";
 import {
-  type AutoCacheMessage,
+  type CacheMessage,
   getAutoCacheLookupHistory,
   getKVCacheDir,
   validateAndJoinPath,
@@ -51,8 +51,6 @@ export function clearCacheRegistry(cacheKey?: string): void {
     initializedCaches.clear();
   }
 }
-
-export type CacheMessage = AutoCacheMessage;
 
 export function extractSystemPrompt(messages: CacheMessage[]): string | null {
   const systemMessage = messages.find((msg) => msg.role === "system");
