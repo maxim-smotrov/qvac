@@ -1,4 +1,5 @@
 export * from "./archive";
+export * from "./cache/types";
 export * from "./cache/auto-history";
 export * from "./cache/paths";
 export * from "./checksum";

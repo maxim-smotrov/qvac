@@ -33,20 +33,19 @@ try {
     kvCache: true,
   }); // kvCache = true
 
-  let response1 = "";
   for await (const token of result1.tokenStream) {
-    response1 += token;
     process.stdout.write(token);
   }
 
-  const stats1 = await result1.stats;
+  const final1 = await result1.final;
+  const stats1 = final1.stats;
   console.log(`\n⏱️  First completion stats: ${JSON.stringify(stats1)}\n`);
 
-  // Continue conversation (should reuse the completed first-turn cache)
+  // Continue conversation (should reuse the completed first-turn cache).
   console.log("🔄 Continuing conversation (reusing previous turn cache):");
   const history2 = [
     { role: "user", content: "What is the capital of France?" },
-    { role: "assistant", content: response1.trim() },
+    { role: "assistant", content: final1.cacheableAssistantContent ?? final1.contentText },
     { role: "user", content: "What about Germany?" },
   ];
 

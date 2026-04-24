@@ -37,6 +37,7 @@ import {
 } from "@/server/utils/tool-integration";
 import { parseToolCalls } from "@/server/utils/tool-parser";
 import { buildAutoCacheSaveHistory, type CacheMessage } from "@/server/utils";
+import { getServerLogger } from "@/logging";
 import { AttachmentNotFoundError } from "@/utils/errors-server";
 import { nowMs } from "@/profiling";
 import {
@@ -45,6 +46,8 @@ import {
 } from "@/profiling/model-execution";
 import type { LlmStats } from "@/server/bare/types/addon-responses";
 import fs, { promises as fsPromises } from "bare-fs";
+
+const logger = getServerLogger();
 
 interface ResponseWithStats {
   stats?: LlmStats;
@@ -469,36 +472,63 @@ export async function* completion(
         generationParams,
         { cacheKey: cachePathToUse, saveCacheToDisk: true },
       );
-      const saveVerified = await recordCacheSaveCount(
-        cachePathToUse,
-        history.length + 1,
+
+      // TODO: support auto-cache for tool-call turns by keying off the
+      // structured assistant/tool messages callers push into history,
+      // not result.responseText (which is raw tool-call markup here).
+      // Until then, remove any cache file the addon wrote so it doesn't
+      // leak on disk (the next turn would compute a different key and
+      // never reach it).
+      if (result.toolCalls.length > 0) {
+        logger.warn(
+          `[kv-cache] Auto cache tool-call turn; removing orphaned cache to avoid disk leak. path=${cachePathToUse}`,
+        );
+        try {
+          await fsPromises.unlink(cachePathToUse);
+        } catch (unlinkError) {
+          logger.warn(
+            `[kv-cache] Failed to remove orphaned tool-turn cache file; disk leak likely. path=${cachePathToUse} error=${unlinkError instanceof Error ? unlinkError.message : String(unlinkError)}`,
+          );
+        }
+        cachedMessageCounts.delete(cachePathToUse);
+        return result;
+      }
+
+      const savedHistory = buildAutoCacheSaveHistory(
+        cacheMessages,
+        result.responseText,
+      );
+      const postResponseCacheInfo = await getCurrentCacheInfo(
+        modelId,
+        configHash,
+        savedHistory,
       );
 
-      if (saveVerified) {
-        const savedHistory = buildAutoCacheSaveHistory(
-          cacheMessages,
-          result.responseText,
+      if (
+        !(await renameCacheFile(
+          cachePathToUse,
+          postResponseCacheInfo.cachePath,
+        ))
+      ) {
+        logger.warn(
+          `[kv-cache] Auto cache rename failed; removing stale cache to avoid disk leak. from=${cachePathToUse} to=${postResponseCacheInfo.cachePath}`,
         );
-        const postResponseCacheInfo = await getCurrentCacheInfo(
-          modelId,
-          configHash,
-          savedHistory,
-        );
-
-        if (cachePathToUse !== postResponseCacheInfo.cachePath) {
-          const renameSucceeded = await renameCacheFile(
-            cachePathToUse,
-            postResponseCacheInfo.cachePath,
+        try {
+          await fsPromises.unlink(cachePathToUse);
+        } catch (unlinkError) {
+          logger.warn(
+            `[kv-cache] Failed to remove stale cache file; disk leak likely. path=${cachePathToUse} error=${unlinkError instanceof Error ? unlinkError.message : String(unlinkError)}`,
           );
-          cachedMessageCounts.delete(cachePathToUse);
-          cachedMessageCounts.set(
-            renameSucceeded ? postResponseCacheInfo.cachePath : cachePathToUse,
-            savedHistory.length,
-          );
-        } else {
-          cachedMessageCounts.set(cachePathToUse, savedHistory.length);
         }
+        cachedMessageCounts.delete(cachePathToUse);
+        return result;
       }
+
+      cachedMessageCounts.delete(cachePathToUse);
+      await recordCacheSaveCount(
+        postResponseCacheInfo.cachePath,
+        savedHistory.length,
+      );
 
       return result;
     }
