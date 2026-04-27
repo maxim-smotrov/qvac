@@ -205,6 +205,11 @@ private:
   std::string processPromptImpl(const Prompt& prompt);
   void cancelImpl() const;
 
+  /// @brief Persist the active KV cache to disk when the prompt opted in via
+  /// `saveCacheToDisk`. Shared by the prefill and post-generation paths so
+  /// both honour the option identically. No-op when no cache is active.
+  void maybeSaveCacheToDisk(const Prompt& prompt);
+
   struct ReloadableState {
     ReloadableState(
         const ConstructionArgs& args, const std::string& loadingContext,

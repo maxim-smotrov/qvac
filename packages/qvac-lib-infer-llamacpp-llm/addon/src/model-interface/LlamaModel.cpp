@@ -571,6 +571,7 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
   }
 
   if (prompt.prefill) {
+    maybeSaveCacheToDisk(prompt);
     return out;
   }
 
@@ -617,15 +618,19 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
       state_->llmContext_->setFirstMsgTokens(state_->llmContext_->getNPast());
     }
   }
-  if (prompt.saveCacheToDisk && state_->cacheManager_.has_value() &&
-      state_->cacheManager_->hasActiveCache()) {
-    state_->cacheManager_->saveCache();
-  }
+  maybeSaveCacheToDisk(prompt);
 
   if (resolved.shouldResetAfterInference) {
     resetState(false);
   }
   return out;
+}
+
+void LlamaModel::maybeSaveCacheToDisk(const Prompt& prompt) {
+  if (prompt.saveCacheToDisk && state_->cacheManager_.has_value() &&
+      state_->cacheManager_->hasActiveCache()) {
+    state_->cacheManager_->saveCache();
+  }
 }
 
 qvac_lib_inference_addon_cpp::RuntimeStats LlamaModel::runtimeStats() const {
