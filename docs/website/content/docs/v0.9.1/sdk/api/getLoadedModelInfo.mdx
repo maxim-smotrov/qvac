@@ -1,0 +1,45 @@
+---
+title: "getLoadedModelInfo( )"
+titleStyle: code
+description: "Returns introspection info for a loaded `modelId` (local or delegated).
+
+For local models, `info.modelType` and `info.handlers` are authoritative.
+Use them to preflight an SDK call before sending the actual RPC, e.g.
+confirm that a model supports `transcribeStream` before calling `transcribe()`.
+
+For delegated models, only `modelId`, `isDelegated: true`, `providerInfo`,
+and `handlers: []` are populated. Preflight against a delegated model is
+best-effort and falls through to the provider's error response.
+
+Throws `ModelNotFoundError` if no entry exists for `modelId`."
+---
+
+```typescript
+function getLoadedModelInfo(params: { modelId: string }, rpcOptions?: { forceNewConnection?: boolean; healthCheckTimeout?: number; profiling?: { enabled?: boolean; includeServerBreakdown?: boolean; mode?: "summary" | "verbose" }; timeout?: number }): Promise
+```
+
+## Parameters
+
+| Name | Type | Required? | Description |
+| --- | --- | :---: | --- |
+| `params` | `\{ modelId: string \}` | ✓ | No description |
+| `rpcOptions` | `\{ forceNewConnection?: boolean; healthCheckTimeout?: number; profiling?: \{ enabled?: boolean; includeServerBreakdown?: boolean; mode?: "summary" | "verbose" \}; timeout?: number \}` | ✗ | No description |
+
+## Returns
+
+```typescript
+Promise
+```
+
+
+
+
+
+## Example
+
+```typescript
+const info = await getLoadedModelInfo({ modelId });
+if (info.isDelegated || info.handlers.includes("completionStream")) {
+  // safe to call completion(); delegated path defers to provider
+}
+```
