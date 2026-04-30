@@ -47,7 +47,7 @@ export class DiffusionExecutor extends AbstractModelExecutor<typeof diffusionTes
     modelId: string,
     p: Record<string, unknown>,
   ): DiffusionClientParams {
-    const params: DiffusionClientParams = {
+    const params: Omit<DiffusionClientParams, "init_image" | "init_images"> = {
       modelId,
       prompt: p.prompt as string,
     };
@@ -63,9 +63,23 @@ export class DiffusionExecutor extends AbstractModelExecutor<typeof diffusionTes
     if (p.seed != null) params.seed = p.seed as number;
     if (p.batch_count != null) params.batch_count = p.batch_count as number;
     if (p.vae_tiling != null) params.vae_tiling = p.vae_tiling as boolean;
-    if (p.init_image != null) params.init_image = p.init_image as Uint8Array;
+    if (p.increase_ref_index != null) params.increase_ref_index = p.increase_ref_index as boolean;
+    if (p.auto_resize_ref_image != null) params.auto_resize_ref_image = p.auto_resize_ref_image as boolean;
+    if (p.lora != null) params.lora = p.lora as string;
     if (p.strength != null) params.strength = p.strength as number;
 
+    if (p.init_image != null && p.init_images != null) {
+      throw new Error(
+        "Test params cannot set both init_image and init_images (mutually exclusive).",
+      );
+    }
+
+    if (p.init_images != null) {
+      return { ...params, init_images: p.init_images as Uint8Array[] };
+    }
+    if (p.init_image != null) {
+      return { ...params, init_image: p.init_image as Uint8Array };
+    }
     return params;
   }
 
