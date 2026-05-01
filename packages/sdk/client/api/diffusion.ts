@@ -59,17 +59,9 @@ interface DiffusionResult {
  *   height: 768,
  * });
  *
- * // LoRA adapter for this generation
- * // Pass an absolute path to a local adapter you downloaded ahead of time.
- * // Relative paths are rejected — the SDK runs across processes with
- * // differing working directories, so an absolute path is required.
- * // Whether the adapter persists across subsequent diffusion() calls is
- * // controlled at loadModel time via `modelConfig.lora_apply_mode`.
- * // Default is "auto", which delegates to stable-diffusion.cpp: it picks
- * // "at_runtime" when the loaded model has quantized weights, and
- * // "immediately" otherwise. See `sdcppConfigSchema.lora_apply_mode` for
- * // the full description, and the @qvac/diffusion-cpp `LoraApplyMode`
- * // type for the addon-level contract.
+ * // LoRA adapter for this generation (absolute path required).
+ * // Persistence across subsequent diffusion() calls is controlled at
+ * // loadModel time via `modelConfig.lora_apply_mode`.
  * const { outputs } = diffusion({
  *   modelId,
  *   prompt: "a watercolor cat",

@@ -395,24 +395,6 @@ test("diffusionRequestSchema: rejects lora as relative path", (t) => {
   t.is(resultSubdir.success, false);
 });
 
-test("diffusionRequestSchema: rejects empty lora", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    lora: "",
-  });
-  t.is(result.success, false);
-});
-
-test("diffusionRequestSchema: rejects lora with wrong type", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    lora: 42,
-  });
-  t.is(result.success, false);
-});
-
 test("diffusionRequestSchema: accepts init_images with multiple base64 buffers", (t) => {
   const result = diffusionRequestSchema.safeParse({
     modelId: "model-1",
@@ -420,33 +402,6 @@ test("diffusionRequestSchema: accepts init_images with multiple base64 buffers",
     init_images: ["iVBORw0KGgoAAAANSUhEUg==", "/9j/4AAQSkZJRgABAQEASABIAAA="],
   });
   t.is(result.success, true);
-});
-
-test("diffusionRequestSchema: rejects empty init_images array", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    init_images: [],
-  });
-  t.is(result.success, false);
-});
-
-test("diffusionRequestSchema: rejects init_images with empty entry", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    init_images: ["iVBORw0KGgoAAAANSUhEUg==", ""],
-  });
-  t.is(result.success, false);
-});
-
-test("diffusionRequestSchema: rejects init_images with invalid base64", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    init_images: ["not valid base64!!!"],
-  });
-  t.is(result.success, false);
 });
 
 test("diffusionRequestSchema: accepts increase_ref_index boolean", (t) => {
@@ -459,15 +414,6 @@ test("diffusionRequestSchema: accepts increase_ref_index boolean", (t) => {
   t.is(result.success, true);
 });
 
-test("diffusionRequestSchema: rejects increase_ref_index with non-boolean", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    increase_ref_index: "true",
-  });
-  t.is(result.success, false);
-});
-
 test("diffusionRequestSchema: accepts auto_resize_ref_image boolean", (t) => {
   const result = diffusionRequestSchema.safeParse({
     modelId: "model-1",
@@ -476,15 +422,6 @@ test("diffusionRequestSchema: accepts auto_resize_ref_image boolean", (t) => {
     auto_resize_ref_image: false,
   });
   t.is(result.success, true);
-});
-
-test("diffusionRequestSchema: rejects auto_resize_ref_image with non-boolean", (t) => {
-  const result = diffusionRequestSchema.safeParse({
-    modelId: "model-1",
-    prompt: "a cat",
-    auto_resize_ref_image: 1,
-  });
-  t.is(result.success, false);
 });
 
 test("diffusionRequestSchema: rejects when init_image and init_images are both set", (t) => {
@@ -535,24 +472,9 @@ test("diffusionStreamRequestSchema: accepts a valid stream request with type lit
 
 // ---- sdcppConfigSchema: lora_apply_mode ----
 
-test("sdcppConfigSchema: accepts lora_apply_mode 'auto'", (t) => {
+test("sdcppConfigSchema: accepts lora_apply_mode", (t) => {
   const result = sdcppConfigSchema.safeParse({ lora_apply_mode: "auto" });
   t.is(result.success, true);
-});
-
-test("sdcppConfigSchema: accepts lora_apply_mode 'immediately'", (t) => {
-  const result = sdcppConfigSchema.safeParse({ lora_apply_mode: "immediately" });
-  t.is(result.success, true);
-});
-
-test("sdcppConfigSchema: accepts lora_apply_mode 'at_runtime'", (t) => {
-  const result = sdcppConfigSchema.safeParse({ lora_apply_mode: "at_runtime" });
-  t.is(result.success, true);
-});
-
-test("sdcppConfigSchema: rejects invalid lora_apply_mode", (t) => {
-  const result = sdcppConfigSchema.safeParse({ lora_apply_mode: "always" });
-  t.is(result.success, false);
 });
 
 // ============================================

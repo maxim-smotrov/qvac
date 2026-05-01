@@ -31,16 +31,12 @@ export const sdcppConfigSchema = z
     lora_apply_mode: z.enum(["auto", "immediately", "at_runtime"]).optional()
       .describe(
         "How LoRA adapters passed via diffusion({ lora }) are applied. " +
-        "'auto' (addon default): the underlying stable-diffusion.cpp library " +
-        "picks based on the loaded model's weight type — 'at_runtime' when " +
-        "any weights are quantized (q4_K, q5_K, q8_0, etc.), 'immediately' " +
-        "for full-precision weights (f16/f32/bf16). " +
+        "'auto' (default): picked based on weight type — 'at_runtime' for " +
+        "quantized weights, 'immediately' for full-precision. " +
         "'immediately': adapter is fused into the model on first use and " +
-        "persists across subsequent diffusion() calls (even ones without " +
-        "lora) until the model is unloaded. " +
-        "'at_runtime': adapter is applied per-call and not persisted. " +
-        "See diffusion-cpp/index.d.ts (LoraApplyMode) and the upstream " +
-        "stable-diffusion.cpp `--lora-apply-mode` flag for the full contract.",
+        "persists across subsequent diffusion() calls until the model is " +
+        "unloaded. " +
+        "'at_runtime': adapter is applied per-call and not persisted.",
       ),
     verbosity: z.number().optional(),
     clipLModelSrc: modelSrcInputSchema.optional()
